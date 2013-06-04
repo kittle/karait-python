@@ -1,4 +1,6 @@
 import time
+from random import random
+
 import pymongo
 from karait.model.message import Message
 from bson.code import Code
@@ -55,7 +57,15 @@ class Queue(object):
                 raise operation_failure
     
     def write(self, message, routing_key=None, expire=-1.0, unique_key=None,
-                                            visibility_timeout=None):
+                                            visibility_timeout=None,
+                   queue_len_threshold=None, queue_len_check_probability=None):
+
+        if (queue_len_threshold is not None and
+                (queue_len_check_probability is None or
+                         random() < queue_len_check_probability)):
+            self._wait_until_queue_len_is_lte(queue_len_threshold,
+                                               routing_key=routing_key)
+
         if type(message) == dict:
             message_dict = message
         else:
@@ -160,3 +170,25 @@ class Queue(object):
             multi=True,
             safe=True
         )
+
+    def _wait_until_queue_len_is_lte(self, queue_len_threshold, routing_key=None,
+                                     polling_interval=1.0, polling_timeout=None):
+
+        current_time = time.time()
+        query = {
+            '_meta.expired': False,
+            '_meta.visible_after': {
+              '$lt': current_time
+            }
+        }
+        if routing_key:
+            query['_meta.routing_key'] = routing_key
+        else:
+            query['_meta.routing_key'] = {
+                '$exists': False
+            }
+
+        while self.queue_collection.find(query).count() > queue_len_threshold:
+            if polling_timeout and (time.time() - current_time) > polling_timeout:
+                break
+            time.sleep(polling_interval)
