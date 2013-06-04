@@ -16,7 +16,8 @@ class Queue(object):
         database='karait',
         queue='messages',
         average_message_size=8192,
-        queue_size=4096
+        queue_size=4096,
+        connection=None
     ):
         self.host = host
         self.port = port
@@ -24,13 +25,16 @@ class Queue(object):
         self.queue = queue
         self.average_message_size = average_message_size
         self.queue_size = queue_size
-        self._create_mongo_connection()
+        self._create_mongo_connection(connection)
         
-    def _create_mongo_connection(self):
-        self.connection = pymongo.Connection(
-            self.host,
-            self.port
-        )
+    def _create_mongo_connection(self, connection):
+        if connection:
+            self.connection = connection
+        else:
+            self.connection = pymongo.MongoClient(
+                self.host,
+                self.port
+            )
         self.queue_database = self.connection[self.database]
         self.queue_collection = self.queue_database[self.queue]
         self._create_capped_collection()
