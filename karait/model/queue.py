@@ -54,7 +54,8 @@ class Queue(object):
             if not self.ALREADY_EXISTS_EXCEPTION_STRING in str(operation_failure):
                 raise operation_failure
     
-    def write(self, message, routing_key=None, expire=-1.0, unique_key=None):
+    def write(self, message, routing_key=None, expire=-1.0, unique_key=None,
+                                            visibility_timeout=None):
         if type(message) == dict:
             message_dict = message
         else:
@@ -64,7 +65,8 @@ class Queue(object):
         message_dict['_meta']['expired'] = False
         message_dict['_meta']['timestamp'] = time.time()
         message_dict['_meta']['expire'] = expire
-        message_dict['_meta']['visible_after'] = -1.0
+        message_dict['_meta']['visible_after'] = (-1.0 if visibility_timeout is None
+                                             else time.time() + visibility_timeout)
         
         if routing_key:
             message_dict['_meta']['routing_key'] = routing_key
